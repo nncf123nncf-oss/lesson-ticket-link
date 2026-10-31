@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回数券の残りリンク</title>
+<meta name="description" content="10回券・5回券などの回数券を、生徒ごとに「使った日」で記録すると、残りの回数と期限までの日数が出ます。記録はリンクにして生徒に送れ、生徒は登録なしで見られます。一覧はこの端末のブラウザに保存します。">
+<style>
+  :root {
+    --bg: #fbf5f7; --surface: #ffffff; --ink: #2a1520; --ink2: #4a2f3b; --ink3: #5f4552;
+    --line: #ead6de; --line-strong: #7f6370; --accent: #9c3d6b; --accent-ink: #ffffff; --accent-soft: #f8e6ee;
+    --danger: #a8231b; --danger-soft: #fbe9e7; --notice: #f6eaef;
+    --font: "Hiragino Sans","Yu Gothic","BIZ UDPGothic","Noto Sans JP",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #171014; --surface: #21171c; --ink: #f6e9ef; --ink2: #e0c9d3; --ink3: #c4aab6;
+      --line: #3a2a32; --line-strong: #9c8390; --accent: #f0a3c6; --accent-ink: #2a0f1c; --accent-soft: #3a2130;
+      --danger: #ff9a92; --danger-soft: #3a1f1c; --notice: #2a1d23;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.6; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 16px 32px; }
+  h1 { font-size: 22px; line-height: 1.3; margin: 8px 0 8px; overflow-wrap: anywhere; }
+  h2 { font-size: 18px; line-height: 1.4; margin: 0 0 10px; overflow-wrap: anywhere; }
+  h3 { font-size: 16px; line-height: 1.4; margin: 0 0 8px; overflow-wrap: anywhere; }
+  p { margin: 0 0 10px; }
+  .lead { color: var(--ink2); }
+  .notes { margin: 0 0 14px; padding-left: 1.2em; color: var(--ink2); font-size: 15px; }
+  .notes li { margin-bottom: 2px; }
+  .small { font-size: 14px; color: var(--ink3); }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 14px; min-width: 0; }
+  label.f, .f { display: block; font-weight: 600; margin: 0 0 4px; }
+  .hint { font-weight: 400; color: var(--ink3); font-size: 14px; }
+  input[type=text], input[type=date], textarea {
+    display: block; width: 100%; max-width: 100%; min-width: 0; min-height: 44px; font: inherit; font-size: 16px; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; margin: 0 0 10px; -webkit-appearance: none; appearance: none; }
+  textarea { resize: vertical; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button { font: inherit; font-size: 16px; min-height: 44px; min-width: 44px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line-strong);
+    background: var(--surface); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-align: center; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+  .stack { display: grid; gap: 10px; margin: 0 0 8px; }
+  .stack button { width: 100%; min-height: 52px; font-size: 17px; }
+  .errors { border: 2px solid var(--danger); background: var(--danger-soft); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; color: var(--ink); }
+  .errors ul { margin: 4px 0 0; padding-left: 1.2em; }
+  .okmsg { color: var(--ink2); font-weight: 600; }
+  .urlbox { font-size: 14px; word-break: break-all; overflow-wrap: anywhere; }
+  .len { font-weight: 700; }
+  /* 生徒の一覧 */
+  .cls-row { margin: 0 0 4px; }
+  .roster { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+  .roster button { width: 100%; display: block; text-align: left; padding: 8px 12px; border-color: var(--line-strong); }
+  .roster button[aria-current="true"] { border: 3px solid var(--accent); background: var(--accent-soft); padding: 6px 10px; }
+  .roster .r1 { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+  .roster .rn { font-weight: 800; font-size: 17px; overflow-wrap: anywhere; min-width: 0; }
+  .roster .rr { font-weight: 700; white-space: nowrap; }
+  .roster .r2 { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; font-size: 14px; color: var(--ink2); margin-top: 2px; }
+  .mark { display: inline-block; border: 2px solid var(--danger); color: var(--danger); background: var(--danger-soft); border-radius: 999px; padding: 0 8px; font-weight: 800; font-size: 13px; line-height: 1.6; white-space: nowrap; }
+  .empty-roster { color: var(--ink3); font-size: 15px; margin: 0 0 10px; }
+  /* 生徒の入力 */
+  .sizes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 6px; margin: 0 0 10px; align-items: center; }
+  .sizes button { padding: 6px 0; }
+  .sizes button[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-soft); font-weight: 800; }
+  .sizes .own { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .sizes .own input { margin: 0; text-align: right; padding: 8px 6px; }
+  .dates { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 8px; }
+  .record { width: 100%; min-height: 60px; font-size: 19px; }
+  .addday { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin: 10px 0 10px; }
+  .addday input { margin: 0; }
+  .used { list-style: none; margin: 0 0 10px; padding: 0; }
+  .used li { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding: 2px 0; }
+  .used .un { font-weight: 700; color: var(--ink3); min-width: 3.6em; white-space: nowrap; }
+  .used .ud { flex: 1; min-width: 0; }
+  .used button { padding: 6px 10px; font-size: 15px; }
+  .sec-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 16px 0 8px; }
+  .sec-h h2 { margin: 0; }
+  /* 残りの表示（作る画面・見る画面の共通） */
+  .notice { background: var(--notice); border: 1px solid var(--line-strong); border-left: 6px solid var(--accent); border-radius: 6px; padding: 10px 12px; margin: 0 0 14px; font-size: 14px; color: var(--ink2); }
+  .v-cls { font-size: 15px; color: var(--ink3); margin: 0 0 2px; font-weight: 700; overflow-wrap: anywhere; }
+  .remain { border: 3px solid var(--accent); border-radius: 10px; background: var(--surface); padding: 12px 14px; margin: 0 0 12px; }
+  .remain .rl { font-size: 23px; font-weight: 800; line-height: 1.4; margin: 0 0 8px; overflow-wrap: anywhere; }
+  .remain .rl .nw { white-space: nowrap; }
+  .dots { display: grid; grid-template-columns: repeat(10, minmax(0, 28px)); gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+  .dots li { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; line-height: 1; background: var(--surface); }
+  .dots li.on { background: var(--accent); color: var(--accent-ink); }
+  .remain .cnt { font-size: 15px; color: var(--ink2); margin: 0; }
+  .exp-line { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); padding: 8px 12px; margin: 0 0 12px; font-weight: 700; overflow-wrap: anywhere; }
+  .exp-line.warn { border: 2px solid var(--danger); background: var(--danger-soft); }
+  .days { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }
+  .days li { display: flex; gap: 10px; border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .days .un { font-weight: 700; color: var(--ink3); min-width: 3.6em; white-space: nowrap; }
+  .msgbox { font-size: 15px; white-space: pre-wrap; }
+  .linklike { background: none; border: 0; color: var(--accent); text-decoration: underline; padding: 8px 0; min-height: 44px; }
+  .danger-btn { color: var(--danger); border-color: var(--danger); }
+  .mw-footer { box-sizing: border-box; width: 100%; max-width: 100%; margin: 24px 0 0; padding: 16px; background: #F7F7F8;
+    border: 1px solid #D8D8DC; border-radius: 6px; color: #3A3A3E; font-family: system-ui, sans-serif; font-size: 12px; line-height: 1.7; }
+  .mw-footer p { margin: 0 0 6px; } .mw-footer p:last-child { margin-bottom: 0; } .mw-footer a { color: #0B5AA6; display: inline-block; padding: 13px 0; }
+  @media (max-width: 400px) { .sizes { grid-template-columns: repeat(5, minmax(0, 1fr)); } .sizes .own { grid-column: 1 / -1; } .sizes .own input { max-width: 7em; } }
+  @media (min-width: 880px) {
+    .layout { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+    .viewpage { max-width: 520px; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div id="app"></div>
+  <footer class="mw-footer">
+    <p>みちAIワークス（MICHI AI WORKS）／代表 田中　泉</p>
+    <p>運営: <a href="https://michi-portfolio.vercel.app/" rel="noopener">みちAIワークス 公式サイト</a>（https://michi-portfolio.vercel.app/ ）／ お問い合わせ: <a href="mailto:nncf123nncf@gmail.com">nncf123nncf@gmail.com</a></p>
+    <p>入力した内容は、お使いの端末のブラウザで扱います。生徒の一覧は、この端末のブラウザにだけ保存します。このページはお金の支払いを扱いません。リンクの画面は、リンクを作った方が入力した内容を表示するだけで、当サイトは内容の確認や保証をしていません。アクセス解析（Cloudflare Web Analytics）で、ページの閲覧状況（閲覧数・参照元・ブラウザの種類など）を計測しています。</p>
+    <p>ログイン・会員登録・パスワードの入力を求めることはありません。</p>
+  </footer>
+</main>
+
+<script id="core">
+var LT = (function () {
+  var KEY = 'lesson-ticket-link-v1';
+  var LIM = { cls: 20, name: 10, totalMin: 1, totalMax: 50, students: 30 };
+  var HASH_MAX = 4000, URL_MAX = 2000;
+  var SIZES = [4, 5, 8, 10, 12];
+  var SOON = 14; // 期限まで何日以内で印を付けるか
+  var WD = ['日', '月', '火', '水', '木', '金', '土'];
+  // 向きを変える文字・見えない文字（書式文字 Cf）とハングルのフィラーは落とす（Day085と同じ）
+  var RE_INVISIBLE = new RegExp('[\\p{Cf}' + String.fromCharCode(0x3164, 0x115f, 0x1160, 0xffa0) + ']', 'gu');
+
+  function clean(s) { return String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').replace(RE_INVISIBLE, '').replace(/\s+/g, ' ').trim(); }
+  // 呼び名が重なっていないかを見る形（全角半角・大文字小文字・空白の違いをそろえる）
+  function nameKey(s) { return clean(s).normalize('NFKC').toLowerCase().replace(/\s/g, ''); }
+  function cpLen(s) { return Array.from(s).length; }
+  function norm(s) {
+    return String(s).normalize('NFKC').toLowerCase()
+      .replace(/[\u00ad\u200b-\u200f\u2060-\u2064\ufeff]/g, '')
+      .replace(/[‐-―−ーｰ]/g, '-').replace(/[。｡]/g, '.');
+  }
+  // 言葉の照合用: カタカナをひらがなにそろえ、文字と数字以外を落とす（照合のときだけこの形にする）
+  var RE_FILLER = new RegExp('[' + String.fromCharCode(0x3164, 0x115f, 0x1160, 0xffa0) + ']', 'g');
+  function wordKey(s) {
+    return norm(s).replace(/[ァ-ヶ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0x60); })
+      .replace(/[^\p{L}\p{N}]/gu, '').replace(RE_FILLER, '');
+  }
+  function hasWord(key, words) { for (var i = 0; i < words.length; i++) if (key.indexOf(words[i]) >= 0) return true; return false; }
+  // リンク・メールアドレス・電話番号らしい文字を見つける（Day085の規則を流用）。口座番号を想定して、7桁以上の数字の並びも止める
+  var TLD = '(?:com|net|org|jp|me|io|co|info|biz|xyz|app|dev|link|page|shop|site|online|tokyo|ly|gl|to|cc|tv|us|uk|ne|or|ac|go|ee|gle|be|gd|ai|fm|in|so|top|cn|ru|kr|tw|hk|ws|gg|sh|im|is|li|la|vip|club|live|work|fun|icu)';
+  var RE_DOMAIN = new RegExp('[^\\s.]+\\.' + TLD + '(?![a-z])');
+  var LEAD_WORDS = ['lineid', 'らいんid', 'id検索', '友だち追加', '友達追加', 'ともだち追加', 'paypayid', 'kyashid'].map(wordKey);
+  // 振込先・口座を書かせない（偽の請求のように使わせない）。語の根で持つ
+  var MONEY_WORDS = ['振込', '振り込', 'ふりこみ', '払込', '払い込', '送金', '入金先', '支払先', '支払い先', '口座', '銀行', 'ぎんこう', '信用金庫', '信金', 'ゆうちょ', '通帳', '暗証', 'カード番号', '名義', 'bank'].map(wordKey);
+  var KANJI_DIGITS = '〇一二三四五六七八九';
+  var RE_DATE = /(?<!\d)(?:19|20)\d{2}[\-\/.](?:0?[1-9]|1[0-2])[\-\/.](?:0?[1-9]|[12]\d|3[01])(?!\d)/g;
+  function blockedReason(s) {
+    var n = norm(s), compact = n.replace(/\s/g, ''), key = wordKey(s);
+    var dotted = compact.replace(/ドット|どっと|\(dot\)|\[dot\]|dot/g, '.');
+    if (/https?|:\/\/|www\.|tel:|mailto:/.test(compact) || RE_DOMAIN.test(n) || RE_DOMAIN.test(compact) || RE_DOMAIN.test(dotted)) return 'link';
+    if (hasWord(key, LEAD_WORDS)) return 'lead';
+    if (/@(?!\d)/.test(n)) return 'mail';
+    if (hasWord(key, MONEY_WORDS)) return 'money';
+    var digits = n.replace(/[〇一二三四五六七八九]/g, function (c) { return String(KANJI_DIGITS.indexOf(c)); }).replace(RE_DATE, ' ');
+    if (/\+\d[\d\s().\/_\-・、]{6,}/.test(digits)) return 'number';
+    var runs = digits.match(/\d[\d\s().\/_\-・、]*\d/g) || [];
+    for (var i = 0; i < runs.length; i++) if (runs[i].replace(/\D/g, '').length >= 7) return 'number';
+    return '';
+  }
+  var REASON = { link: 'リンク', mail: 'メールアドレス（@）', number: '7桁以上の数字（電話番号・口座番号など）' };
+
+  /* ---- 日付（すべて YYYY-MM-DD の文字で持ち、計算は UTC の日で行う） ---- */
+  function validDate(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); if (!m) return false;
+    var y = +m[1], mo = +m[2], d = +m[3]; if (y < 2000 || y > 2099) return false;
+    var dt = new Date(Date.UTC(y, mo - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+  }
+  function dayNum(s) { var p = s.split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]) / 86400000; }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  // 今日（端末のローカル日付）。検算のときだけ LT.now に Date を入れて差し替える
+  function today() { var d = api.now instanceof Date ? api.now : new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function dateJa(s) {
+    if (!validDate(s)) return '';
+    var p = s.split('-').map(Number);
+    return p[0] + '年' + p[1] + '月' + p[2] + '日';
+  }
+  function dateJaW(s) {
+    if (!validDate(s)) return '';
+    var p = s.split('-').map(Number), w = new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+    return p[0] + '年' + p[1] + '月' + p[2] + '日（' + WD[w] + '）';
+  }
+  // 使った日の短い書き方。年が買った年と違う日があるときだけ、全部に年を付ける
+  function shortDates(used, bought) {
+    var y = bought.slice(0, 4), withYear = used.some(function (d) { return d.slice(0, 4) !== y; });
+    return used.map(function (d) { var p = d.split('-').map(Number); return (withYear ? p[0] + '/' : '') + p[1] + '/' + p[2]; });
+  }
+
+  /* ---- 生徒の記録 ---- */
+  function newId() { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function blankStudent() { return { id: newId(), name: '', total: '10', bought: today(), exp: '', used: [] }; }
+  function emptyStore() { return { cls: '', students: [], sel: '' }; }
+  // 端末に残っていた形をそろえる（型だけを直す。中身の誤りは画面で案内する）
+  function sanitizeStore(o) {
+    if (!o || typeof o !== 'object' || !Array.isArray(o.students)) return null;
+    function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : (typeof v === 'number' ? String(v).slice(0, max) : ''); }
+    var st = emptyStore(), ids = Object.create(null);
+    st.cls = str(o.cls, 200);
+    o.students.slice(0, LIM.students).forEach(function (s) {
+      if (!s || typeof s !== 'object') return;
+      var id = typeof s.id === 'string' && /^[a-z0-9]{1,40}$/.test(s.id) && !ids[s.id] ? s.id : newId();
+      ids[id] = 1;
+      st.students.push({ id: id, name: str(s.name, 100), total: str(s.total, 10), bought: str(s.bought, 10), exp: str(s.exp, 10),
+        used: Array.isArray(s.used) ? s.used.filter(function (d) { return typeof d === 'string' && validDate(d); }).slice(0, LIM.totalMax) : [] });
+    });
+    st.sel = typeof o.sel === 'string' && ids[o.sel] ? o.sel : (st.students[0] ? st.students[0].id : '');
+    return st;
+  }
+  function parseTotal(v) {
+    var s = String(v == null ? '' : v).normalize('NFKC').replace(/[\s回]/g, '');
+    if (!/^\d{1,3}$/.test(s)) return NaN;
+    var n = +s; return n >= LIM.totalMin && n <= LIM.totalMax ? n : NaN;
+  }
+
+  // 入力 → 設定。外れた点は日本語の文で errors に入れる。others は同じ一覧のほかの生徒（呼び名の重なりを見る）
+  function toConfig(cls, s, others, made) {
+    var errs = [];
+    function txt(v, max, label, req) {
+      var t = clean(v);
+      if (req && !t) errs.push(label + 'を入れてください');
+      if (cpLen(t) > max) errs.push(label + 'は' + max + '字までです');
+      var b = blockedReason(t);
+      if (b === 'money') errs.push(label + '：振込先や口座に関わる言葉は入れられません（このページはお金の支払いを扱いません）');
+      else if (b === 'lead') errs.push(label + '：LINE IDなど、連絡先を書くことはできません');
+      else if (b) errs.push(label + 'に' + REASON[b] + 'らしい文字は入れられません');
+      return t;
+    }
+    var c = txt(cls, LIM.cls, '教室名', false);
+    var name = txt(s.name, LIM.name, '呼び名', true);
+    if (name && others && others.some(function (o) { return o.id !== s.id && nameKey(o.name) === nameKey(name); })) errs.push('呼び名「' + name + '」は一覧にもういます。呼び分けてください');
+    var total = parseTotal(s.total);
+    if (isNaN(total)) errs.push('回数券の回数は' + LIM.totalMin + '〜' + LIM.totalMax + 'の整数で入れてください');
+    var bought = clean(s.bought), exp = clean(s.exp);
+    if (!validDate(bought)) { errs.push('買った日を入れてください'); bought = ''; }
+    if (exp && !validDate(exp)) { errs.push('有効期限の日付の形が正しくありません'); exp = ''; }
+    if (bought && exp && dayNum(exp) <= dayNum(bought)) errs.push('有効期限は買った日より後の日にしてください');
+    var used = (s.used || []).filter(validDate).slice().sort();
+    if (!isNaN(total) && used.length > total) errs.push('使った回数（' + used.length + '回）が回数券（' + total + '回）を超えています。回数を直すか、使った日を取り消してください');
+    if (bought && used.some(function (d) { return dayNum(d) < dayNum(bought); })) errs.push('買った日（' + dateJa(bought) + '）より前に使った日があります。買った日か使った日を直してください');
+    if (errs.length) return { cfg: null, errors: errs };
+    var cfg = { cls: c, name: name, total: total, bought: bought, exp: exp, used: used, made: made && validDate(made) ? made : today() };
+    if (encode(cfg).length > HASH_MAX) return { cfg: null, errors: ['文字が多すぎてリンクにできません。絵文字を減らしてください'] };
+    return { cfg: cfg, errors: [] };
+  }
+  // 設定 → 生徒の記録（「自分の一覧に取り込む」用）
+  function studentFrom(cfg, id) { return { id: id || newId(), name: cfg.name, total: String(cfg.total), bought: cfg.bought, exp: cfg.exp, used: cfg.used.slice() }; }
+
+  /* ---- 残りと期限 ---- */
+  function status(cfg, now) {
+    var t = now || today(), left = cfg.total - cfg.used.length, days = null, exp = 'none';
+    if (cfg.exp) { days = dayNum(cfg.exp) - dayNum(t); exp = days < 0 ? 'expired' : days === 0 ? 'today' : 'left'; }
+    var marks = [];
+    if (left === 0) marks.push('使い切り'); else if (left === 1) marks.push('残り1回');
+    if (exp === 'expired') marks.push('期限切れ');
+    else if (exp === 'today') marks.push('期限は今日まで');
+    else if (exp === 'left' && days <= SOON) marks.push('期限まであと' + days + '日');
+    return { left: left, days: days, exp: exp, marks: marks };
+  }
+  function san(name) { return /(さん|様|さま|くん|君|ちゃん|先生)$/.test(name) ? name : name + 'さん'; }
+  function remainText(cfg, st) { return st.left === 0 ? san(cfg.name) + ' ' + cfg.total + '回券を使い切りました' : san(cfg.name) + ' 残り' + st.left + '回（' + cfg.total + '回券）'; }
+  function expText(cfg, st) {
+    if (st.exp === 'none') return '有効期限 なし';
+    if (st.exp === 'expired') return '有効期限 ' + dateJa(cfg.exp) + '（期限が過ぎています）';
+    if (st.exp === 'today') return '有効期限 ' + dateJa(cfg.exp) + '（今日まで）';
+    return '有効期限 ' + dateJa(cfg.exp) + '（あと' + st.days + '日）';
+  }
+  function listExpText(st) { return st.exp === 'none' ? '期限なし' : st.exp === 'expired' ? '期限切れ' : st.exp === 'today' ? '期限は今日まで' : '期限まで' + st.days + '日'; }
+
+  // 生徒に送る文
+  function message(cfg, url, now) {
+    var st = status(cfg, now), L = [];
+    L.push('【' + (cfg.cls ? cfg.cls + ' ' : '') + '回数券】');
+    L.push(cfg.name + ' さん');
+    L.push(cfg.total + '回券（' + dateJa(cfg.bought) + 'に購入）');
+    L.push('使った回数 ' + cfg.used.length + '回／残り ' + st.left + '回' + (st.left === 0 ? '（使い切り）' : ''));
+    L.push(expText(cfg, st));
+    if (cfg.used.length) L.push('使った日 ' + shortDates(cfg.used, cfg.bought).join('・'));
+    L.push('（' + dateJa(cfg.made) + ' 時点）');
+    if (url) { L.push('くわしくはこちら'); L.push(url); }
+    return L.join('\n');
+  }
+
+  /* ---- 設定 ⇄ URLの # 以降 ---- */
+  function b64urlEncode(str) {
+    var bytes = new TextEncoder().encode(str), bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlDecode(s) {
+    var b = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    var bin = atob(b), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  }
+  function encode(c) { return 'v1=' + b64urlEncode(JSON.stringify([1, c.cls, c.name, c.total, c.bought, c.exp, c.used, c.made])); }
+  function makeUrl(base, c) { return base + '#' + encode(c); }
+  function isStr(v, max, req) { return typeof v === 'string' && cpLen(v) <= max && (!req || v.length > 0) && v === clean(v) && !blockedReason(v); }
+  function fromArray(a) {
+    if (!Array.isArray(a) || a.length !== 8 || a[0] !== 1) return null;
+    if (!isStr(a[1], LIM.cls, false) || !isStr(a[2], LIM.name, true)) return null;
+    var total = a[3], bought = a[4], exp = a[5], used = a[6], made = a[7];
+    if (!Number.isInteger(total) || total < LIM.totalMin || total > LIM.totalMax) return null;
+    if (typeof bought !== 'string' || !validDate(bought)) return null;
+    if (typeof exp !== 'string' || (exp !== '' && (!validDate(exp) || dayNum(exp) <= dayNum(bought)))) return null;
+    if (!Array.isArray(used) || used.length > total) return null; // 件数を先に確かめてから中を見る
+    for (var i = 0; i < used.length; i++) {
+      if (typeof used[i] !== 'string' || !validDate(used[i]) || dayNum(used[i]) < dayNum(bought)) return null;
+      if (i && used[i] < used[i - 1]) return null;
+    }
+    if (typeof made !== 'string' || !validDate(made)) return null;
+    return { cls: a[1], name: a[2], total: total, bought: bought, exp: exp, used: used.slice(), made: made };
+  }
+  function decodeHash(h) {
+    try {
+      h = String(h == null ? '' : h).replace(/^#/, '');
+      if (h.length > HASH_MAX) return null;
+      var m = /^v1=([A-Za-z0-9_-]+)$/.exec(h);
+      if (!m) return null;
+      return fromArray(JSON.parse(b64urlDecode(m[1])));
+    } catch (e) { return null; }
+  }
+
+  var api = {
+    KEY: KEY, LIM: LIM, HASH_MAX: HASH_MAX, URL_MAX: URL_MAX, SIZES: SIZES, now: null,
+    clean: clean, nameKey: nameKey, cpLen: cpLen, blockedReason: blockedReason, validDate: validDate, dayNum: dayNum, today: today, dateJa: dateJa, dateJaW: dateJaW, shortDates: shortDates,
+    blankStudent: blankStudent, emptyStore: emptyStore, sanitizeStore: sanitizeStore, parseTotal: parseTotal, toConfig: toConfig, studentFrom: studentFrom,
+    status: status, san: san, remainText: remainText, expText: expText, listExpText: listExpText, message: message,
+    encode: encode, makeUrl: makeUrl, decodeHash: decodeHash
+  };
+  return api;
+})();
+if (typeof module !== 'undefined') module.exports = LT;
+</script>
+
+<script id="ui">
+var LTUI = (function () {
+  if (typeof document === 'undefined') return null;
+  var app = document.getElementById('app');
+  var uid = 0;
+
+  function h(tag, a, kids) {
+    var e = document.createElement(tag);
+    if (a) Object.keys(a).forEach(function (k) {
+      var v = a[k];
+      if (v == null || v === false) return;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+      else if (v === true) e.setAttribute(k, '');
+      else e.setAttribute(k, v);
+    });
+    (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return e;
+  }
+  function baseUrl() { return location.href.split('#')[0].split('?')[0]; }
+  function copyText(text, done) {
+    function fallback() {
+      var ok = false;
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+        document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+        ok = document.execCommand('copy'); document.body.removeChild(ta);
+      } catch (e) { ok = false; }
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try { navigator.clipboard.writeText(text).then(function () { done(true); }, fallback); } catch (e) { fallback(); }
+    } else fallback();
+  }
+  function selectAll(ta) { try { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); } catch (e) { } }
+  function fitHeight(ta) { if (ta.isConnected) { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 4) + 'px'; } }
+
+  /* ---------------- 端末への保存 ---------------- */
+  var storageOk = (function () { try { localStorage.setItem(LT.KEY + '-probe', '1'); localStorage.removeItem(LT.KEY + '-probe'); return true; } catch (e) { return false; } })();
+  var storeBroken = false;
+  function loadStore() {
+    var raw = null;
+    try { raw = localStorage.getItem(LT.KEY); } catch (e) { return LT.emptyStore(); }
+    if (!raw) return LT.emptyStore();
+    var st = null;
+    try { st = LT.sanitizeStore(JSON.parse(raw)); } catch (e) { st = null; }
+    if (st) return st;
+    // 読み取れなかった一覧は消さずに別のキーへ写してから、空の一覧で始める
+    storeBroken = true;
+    try { if (!localStorage.getItem(LT.KEY + '-backup')) localStorage.setItem(LT.KEY + '-backup', raw); } catch (e) { }
+    return LT.emptyStore();
+  }
+  function saveStore(st) {
+    if (!storageOk) return;
+    try { localStorage.setItem(LT.KEY, JSON.stringify(st)); storeBroken = false; } catch (e) { storageOk = false; }
+  }
+
+  /* ---------------- 残りの表示（作る画面・見る画面の共通） ---------------- */
+  function renderRemain(root, cfg, now) {
+    var st = LT.status(cfg, now);
+    var box = h('section', { class: 'remain', 'aria-label': '残りの回数' });
+    var rl = h('p', { class: 'rl' });
+    if (st.left === 0) rl.appendChild(h('span', { text: LT.remainText(cfg, st) }));
+    else { rl.appendChild(h('span', { text: LT.san(cfg.name) + ' ' })); rl.appendChild(h('span', { class: 'nw', text: '残り' + st.left + '回' })); rl.appendChild(h('span', { class: 'nw', text: '（' + cfg.total + '回券）' })); }
+    box.appendChild(rl);
+    var dots = h('ul', { class: 'dots', 'aria-label': cfg.total + '回のうち' + cfg.used.length + '回使用' });
+    for (var i = 0; i < cfg.total; i++) dots.appendChild(h('li', { class: i < cfg.used.length ? 'on' : null, 'aria-hidden': 'true', text: i < cfg.used.length ? '✓' : '' }));
+    box.appendChild(dots);
+    box.appendChild(h('p', { class: 'cnt', text: '使った回数 ' + cfg.used.length + '回／残り ' + st.left + '回' }));
+    root.appendChild(box);
+    root.appendChild(h('p', { class: 'exp-line' + (st.exp === 'expired' || st.exp === 'today' || (st.exp === 'left' && st.days <= 14) ? ' warn' : ''), text: LT.expText(cfg, st) }));
+    root.appendChild(h('h3', { text: '使った日' }));
+    if (!cfg.used.length) root.appendChild(h('p', { class: 'small', text: 'まだありません' }));
+    else {
+      var ol = h('ul', { class: 'days' });
+      for (var k = cfg.used.length - 1; k >= 0; k--) ol.appendChild(h('li', null, [h('span', { class: 'un', text: (k + 1) + '回目' }), h('span', { text: LT.dateJaW(cfg.used[k]) })]));
+      root.appendChild(ol);
+    }
+    root.appendChild(h('p', { class: 'small', text: cfg.total + '回券・' + LT.dateJa(cfg.bought) + 'に購入' }));
+    return st;
+  }
+
+  /* ---------------- 作る画面（先生の一覧） ---------------- */
+  function renderMake() {
+    document.title = '回数券の残りリンク';
+    app.textContent = '';
+    var store = loadStore(), showErrors = false;
+    [
+      h('h1', { text: '回数券の残りリンク' }),
+      h('p', { class: 'lead', text: '生徒ごとに回数券と使った日を記録すると、残りの回数と期限までの日数が出ます。記録はリンクにして生徒に送れます。生徒は登録しなくても見られます。' }),
+      h('ul', { class: 'notes' }, [
+        h('li', { text: 'レッスンのたびに「今日の1回を記録」を押してください。1日に2コマのときは2回押します。' }),
+        h('li', { text: '一覧はこの端末のブラウザにだけ保存されます。ブラウザのデータを消すと一覧も消えます。生徒に送ったリンクから一覧に戻せます。' }),
+        h('li', { text: '送ったリンクは、作った時点の記録です。あとで記録しても、前に送ったリンクの表示は変わりません。' }),
+        h('li', { text: 'お金の支払いは扱いません。連絡先・リンク・口座に関わる文字は入れられないようにしています（すべての言い方は防げません）。' })
+      ])
+    ].forEach(function (e) { app.appendChild(e); });
+    if (!storageOk) app.appendChild(h('div', { class: 'errors', text: 'この端末では一覧を保存できません。ページを閉じると記録が消えます。生徒に送るリンクを控えてください。' }));
+    var brokenBox = h('div', { class: 'errors', text: '保存された一覧が読み取れませんでした。元のデータは消さずに残してあります。新しく記録すると、空の一覧から始まります。' });
+    brokenBox.hidden = !storeBroken;
+    app.appendChild(brokenBox);
+
+    var layout = h('div', { class: 'layout' }), left = h('div'), right = h('div');
+    layout.appendChild(left); layout.appendChild(right); app.appendChild(layout);
+
+    // 左: 教室名と生徒の一覧
+    var listPanel = h('div', { class: 'panel' });
+    left.appendChild(listPanel);
+    var cid = 'f' + (++uid);
+    var clsIn = h('input', { type: 'text', id: cid, maxlength: LT.LIM.cls, autocomplete: 'off', placeholder: '例 ことのはヨガ' });
+    clsIn.value = store.cls;
+    clsIn.addEventListener('input', function () { store.cls = clsIn.value; changed(); });
+    listPanel.appendChild(h('div', { class: 'cls-row' }, [h('label', { class: 'f', for: cid }, ['教室名', h('span', { class: 'hint', text: ' （任意・20字まで・全員に共通）' })]), clsIn]));
+    var rosterHead = h('div', { class: 'sec-h' });
+    var roster = h('ul', { class: 'roster', 'aria-label': '生徒の一覧' });
+    var emptyRoster = h('p', { class: 'empty-roster', text: 'まだ生徒がいません。「＋ 生徒を追加」から始めてください。' });
+    var addBtn = h('button', { type: 'button', class: 'primary', text: '＋ 生徒を追加' });
+    var sampleBtn = h('button', { type: 'button', text: 'サンプルを入れる' });
+    listPanel.appendChild(rosterHead); listPanel.appendChild(roster); listPanel.appendChild(emptyRoster);
+    listPanel.appendChild(h('div', { class: 'btns' }, [addBtn, sampleBtn]));
+
+    // 右: 選んだ生徒の入力と残り
+    var form = h('div', { class: 'panel' });
+    var resRoot = h('div');
+    var errBox = h('div', { class: 'errors', role: 'alert' }); errBox.hidden = true;
+    var linkBox = h('div', { class: 'panel' }); linkBox.hidden = true;
+    var msgTa = h('textarea', { readonly: true, class: 'msgbox', rows: 8, 'aria-label': '生徒に送る文' });
+    var msgCp = h('button', { type: 'button', class: 'primary', text: '生徒に送る文をコピー' });
+    var makeBtn = h('button', { type: 'button', class: 'primary', text: 'リンクを作る' });
+    var msgMsg = h('p', { class: 'okmsg', role: 'status' });
+    var msgBox = h('div', { class: 'panel' }, [h('h3', { text: '生徒に送る文' }),
+      h('p', { class: 'small', text: 'LINEなどに貼って送れます。リンクを作ると、文の最後にリンクが付きます。' }), msgTa, h('div', { class: 'stack' }, [msgCp, makeBtn]), msgMsg]);
+    var noSel = h('p', { class: 'small', text: '一覧から生徒を選ぶか、「＋ 生徒を追加」を押してください。' });
+    right.appendChild(noSel);
+    right.appendChild(form);
+    right.appendChild(h('h2', { text: '残りの回数' }));
+    right.appendChild(resRoot);
+    right.appendChild(errBox);
+    right.appendChild(msgBox);
+    right.appendChild(linkBox);
+    var curUrl = '';
+
+    function cur() { for (var i = 0; i < store.students.length; i++) if (store.students[i].id === store.sel) return store.students[i]; return null; }
+    function cfgOf(s) { return LT.toConfig(store.cls, s, store.students); }
+    function changed() {
+      saveStore(store);
+      brokenBox.hidden = !storeBroken;
+      linkBox.hidden = true; curUrl = '';
+      renderRoster(); renderRes();
+      if (showErrors) refreshErrors();
+    }
+    function refreshErrors() {
+      var s = cur(); errBox.textContent = '';
+      var r = s ? cfgOf(s) : { errors: [] };
+      if (r.errors.length) {
+        errBox.hidden = false;
+        errBox.appendChild(h('strong', { text: '次の点を直してください' }));
+        errBox.appendChild(h('ul', null, r.errors.map(function (m) { return h('li', { text: m }); })));
+      } else errBox.hidden = true;
+      return r;
+    }
+
+    function renderRoster() {
+      roster.textContent = ''; rosterHead.textContent = '';
+      rosterHead.appendChild(h('h2', { text: '生徒の一覧' }));
+      rosterHead.appendChild(h('span', { class: 'hint', text: store.students.length + ' / ' + LT.LIM.students + '人' }));
+      emptyRoster.hidden = store.students.length > 0;
+      addBtn.disabled = store.students.length >= LT.LIM.students;
+      var now = LT.today();
+      store.students.forEach(function (s) {
+        var r = cfgOf(s), name = LT.clean(s.name) || '（呼び名なし）';
+        var r1 = h('span', { class: 'r1' }, [h('span', { class: 'rn', text: name })]);
+        var r2 = h('span', { class: 'r2' });
+        if (r.cfg) {
+          var st = LT.status(r.cfg, now);
+          r1.appendChild(h('span', { class: 'rr', text: '残り' + st.left + '回／' + r.cfg.total + '回券' }));
+          var expMarked = st.marks.some(function (m) { return /期限/.test(m); });
+          if (!expMarked) r2.appendChild(h('span', { text: LT.listExpText(st) }));
+          st.marks.forEach(function (m) { r2.appendChild(h('span', { class: 'mark', text: m })); });
+        } else r2.appendChild(h('span', { text: '入力を直してください' }));
+        roster.appendChild(h('li', null, [h('button', { type: 'button', 'aria-current': s.id === store.sel ? 'true' : 'false', onclick: function () {
+          if (store.sel === s.id) return;
+          store.sel = s.id; showErrors = false; errBox.hidden = true; buildForm(); changed();
+          if (form.scrollIntoView && innerWidth < 880) form.scrollIntoView({ block: 'start' });
+        } }, [r1, r2])]));
+      });
+    }
+
+    function buildForm() {
+      form.textContent = '';
+      var s = cur();
+      noSel.hidden = !!s; form.hidden = !s;
+      if (!s) return;
+      form.appendChild(h('h2', { text: '生徒の回数券' }));
+      var nid = 'f' + (++uid);
+      var nameIn = h('input', { type: 'text', id: nid, maxlength: LT.LIM.name, autocomplete: 'off', placeholder: '例 ゆい' });
+      nameIn.value = s.name;
+      nameIn.addEventListener('input', function () { s.name = nameIn.value; changed(); });
+      form.appendChild(h('div', null, [h('label', { class: 'f', for: nid }, ['呼び名', h('span', { class: 'hint', text: ' （10字まで・フルネームではなく、ふだんの呼び名で）' })]), nameIn]));
+      // 何回券か
+      form.appendChild(h('p', { class: 'f', id: 'sz-l', text: '何回券か' }));
+      var sizes = h('div', { class: 'sizes', role: 'group', 'aria-labelledby': 'sz-l' });
+      var tid = 'f' + (++uid);
+      var totalIn = h('input', { type: 'text', id: tid, inputmode: 'numeric', maxlength: 3, autocomplete: 'off', 'aria-label': 'ほかの回数（1〜50）' });
+      var sizeBtns = LT.SIZES.map(function (n) {
+        return h('button', { type: 'button', text: n + '回', onclick: function () { s.total = String(n); totalIn.value = String(n); markSizes(); changed(); } });
+      });
+      function markSizes() { var t = LT.parseTotal(s.total); sizeBtns.forEach(function (b, i) { b.setAttribute('aria-pressed', LT.SIZES[i] === t ? 'true' : 'false'); }); }
+      totalIn.value = s.total;
+      totalIn.addEventListener('input', function () { s.total = totalIn.value; markSizes(); changed(); });
+      sizeBtns.forEach(function (b) { sizes.appendChild(b); });
+      sizes.appendChild(h('span', { class: 'own' }, [totalIn, '回']));
+      markSizes();
+      form.appendChild(sizes);
+      // 買った日・期限
+      var bid = 'f' + (++uid), eid = 'f' + (++uid);
+      var bIn = h('input', { type: 'date', id: bid, min: '2000-01-01', max: '2099-12-31' }), eIn = h('input', { type: 'date', id: eid, min: '2000-01-01', max: '2099-12-31' });
+      bIn.value = s.bought; eIn.value = s.exp;
+      bIn.addEventListener('input', function () { s.bought = bIn.value; changed(); });
+      eIn.addEventListener('input', function () { s.exp = eIn.value; changed(); });
+      form.appendChild(h('div', { class: 'dates' }, [
+        h('div', null, [h('label', { class: 'f', for: bid, text: '買った日' }), bIn]),
+        h('div', null, [h('label', { class: 'f', for: eid }, ['有効期限', h('span', { class: 'hint', text: ' （任意）' })]), eIn])
+      ]));
+      // 使った日
+      form.appendChild(h('div', { class: 'sec-h' }, [h('h2', { text: '使った日' })]));
+      var recMsg = h('p', { class: 'okmsg', role: 'status' });
+      var rec = h('button', { type: 'button', class: 'primary record', text: '今日の1回を記録' });
+      function addDay(d) {
+        var t = LT.parseTotal(s.total);
+        if (!LT.validDate(d)) { recMsg.textContent = '日付を選んでください。'; return; }
+        if (!isNaN(t) && s.used.length >= t) { recMsg.textContent = t + '回券は' + t + '回まで記録できます。'; return; }
+        if (LT.validDate(s.bought) && LT.dayNum(d) < LT.dayNum(s.bought)) { recMsg.textContent = '買った日より前の日は記録できません。'; return; }
+        s.used.push(d); s.used.sort();
+        buildUsed(); changed();
+        recMsg.textContent = LT.dateJaW(d) + 'の1回を記録しました。';
+      }
+      rec.addEventListener('click', function () { addDay(LT.today()); });
+      form.appendChild(rec);
+      var did = 'f' + (++uid), dIn = h('input', { type: 'date', id: did, min: '2000-01-01', max: '2099-12-31', 'aria-label': '足す日付' });
+      form.appendChild(h('label', { class: 'f small', for: did, text: '日付を指定して足す', style: 'margin-top:10px' }));
+      form.appendChild(h('div', { class: 'addday' }, [dIn, h('button', { type: 'button', text: '足す', onclick: function () { addDay(dIn.value); } })]));
+      form.appendChild(recMsg);
+      var usedBox = h('ul', { class: 'used', 'aria-label': '使った日の一覧' });
+      form.appendChild(usedBox);
+      function buildUsed() {
+        usedBox.textContent = '';
+        var sorted = s.used.slice().sort();
+        if (!sorted.length) { usedBox.appendChild(h('li', { class: 'small', text: 'まだ記録がありません' })); return; }
+        for (var k = sorted.length - 1; k >= 0; k--) (function (d, k) {
+          usedBox.appendChild(h('li', null, [h('span', { class: 'un', text: (k + 1) + '回目' }), h('span', { class: 'ud', text: LT.dateJaW(d) }),
+            h('button', { type: 'button', text: '取り消す', 'aria-label': (k + 1) + '回目（' + LT.dateJa(d) + '）を取り消す', onclick: function () {
+              if (!confirm((k + 1) + '回目（' + LT.dateJaW(d) + '）の記録を取り消します。よろしいですか？')) return;
+              var at = s.used.indexOf(d); if (at >= 0) s.used.splice(at, 1);
+              recMsg.textContent = ''; buildUsed(); changed();
+            } })]));
+        })(sorted[k], k);
+      }
+      buildUsed();
+      form.appendChild(h('div', { class: 'btns', style: 'margin-top:14px' }, [h('button', { type: 'button', class: 'danger-btn', text: 'この生徒をこの端末から消す', onclick: function () {
+        var label = LT.clean(s.name) || 'この生徒';
+        if (!confirm(label + 'の記録を、この端末の一覧から消します。送ったリンクは消えません。よろしいですか？')) return;
+        store.students = store.students.filter(function (x) { return x.id !== s.id; });
+        store.sel = store.students[0] ? store.students[0].id : '';
+        showErrors = false; errBox.hidden = true; buildForm(); changed();
+      } })]));
+    }
+
+    function renderRes() {
+      resRoot.textContent = ''; msgMsg.textContent = '';
+      var s = cur();
+      if (!s) { msgBox.hidden = true; resRoot.appendChild(h('p', { class: 'small', text: '生徒を選ぶと、ここに残りの回数が出ます。' })); return; }
+      var r = cfgOf(s);
+      if (!r.cfg) {
+        msgBox.hidden = true;
+        resRoot.appendChild(h('p', { class: 'small', text: '入力が整うと、ここに残りの回数が出ます。（いまの状態: ' + r.errors[0] + '）' }));
+        return;
+      }
+      renderRemain(resRoot, r.cfg);
+      msgBox.hidden = false;
+      msgTa.value = LT.message(r.cfg, curUrl); fitHeight(msgTa);
+    }
+    msgCp.addEventListener('click', function () {
+      copyText(msgTa.value, function (ok) {
+        if (ok) msgMsg.textContent = 'コピーしました。LINEなどに貼り付けて送ってください。';
+        else { msgMsg.textContent = 'コピーできませんでした。上の文を長押しして、コピーしてください。'; selectAll(msgTa); }
+      });
+    });
+
+    var lenEl = h('p', { class: 'len' }), urlTa = h('textarea', { readonly: true, rows: 4, class: 'urlbox', 'aria-label': '共有用URL' });
+    var cpBtn = h('button', { type: 'button', class: 'primary', text: 'URLをコピー' });
+    var shBtn = h('button', { type: 'button', text: '共有' });
+    var cpMsg = h('p', { class: 'okmsg', role: 'status' });
+    shBtn.hidden = typeof navigator.share !== 'function';
+    cpBtn.addEventListener('click', function () {
+      copyText(curUrl, function (ok) {
+        if (ok) cpMsg.textContent = 'コピーしました。生徒に送ってください。';
+        else { cpMsg.textContent = 'コピーできませんでした。上のURLを長押しして、コピーしてください。'; selectAll(urlTa); }
+      });
+    });
+    shBtn.addEventListener('click', function () {
+      var p; try { p = navigator.share({ url: curUrl }); } catch (e) { cpMsg.textContent = '共有できませんでした。URLをコピーしてください。'; return; }
+      if (p && p.catch) p.catch(function (e) { if (!e || e.name !== 'AbortError') cpMsg.textContent = '共有できませんでした。URLをコピーしてください。'; });
+    });
+    linkBox.appendChild(h('h3', { text: '生徒に送るリンク' }));
+    linkBox.appendChild(lenEl); linkBox.appendChild(urlTa);
+    linkBox.appendChild(h('div', { class: 'btns' }, [cpBtn, shBtn]));
+    linkBox.appendChild(cpMsg);
+    linkBox.appendChild(h('p', { class: 'small', text: 'このリンクは、いまの記録の写しです。次に記録したら、もう一度リンクを作って送ってください。' }));
+    makeBtn.addEventListener('click', function () {
+      showErrors = true;
+      var r = refreshErrors();
+      if (!r.cfg) { linkBox.hidden = true; if (errBox.scrollIntoView) errBox.scrollIntoView({ block: 'nearest' }); return; }
+      var url = LT.makeUrl(baseUrl(), r.cfg), len = Array.from(url).length, over = len > LT.URL_MAX;
+      lenEl.textContent = 'URLの長さ: ' + len.toLocaleString('ja-JP') + ' / ' + LT.URL_MAX.toLocaleString('ja-JP') + '文字' + (over ? '（長すぎます。絵文字を減らしてください）' : '');
+      curUrl = over ? '' : url;
+      urlTa.value = curUrl; cpMsg.textContent = '';
+      cpBtn.disabled = over; shBtn.disabled = over;
+      msgTa.value = LT.message(r.cfg, curUrl); fitHeight(msgTa); msgMsg.textContent = '';
+      linkBox.hidden = false;
+      if (linkBox.scrollIntoView) linkBox.scrollIntoView({ block: 'nearest' });
+    });
+
+    addBtn.addEventListener('click', function () {
+      if (store.students.length >= LT.LIM.students) return;
+      var s = LT.blankStudent(); store.students.push(s); store.sel = s.id;
+      showErrors = false; errBox.hidden = true; buildForm(); changed();
+      var ni = form.querySelector('input[type=text]'); if (ni) { ni.focus(); if (innerWidth < 880 && form.scrollIntoView) form.scrollIntoView({ block: 'start' }); }
+    });
+    sampleBtn.addEventListener('click', function () {
+      if (store.students.length && !confirm('いまの一覧を、サンプルの4人に置き換えます。よろしいですか？')) return;
+      store = sampleStore(); clsIn.value = store.cls; showErrors = false; errBox.hidden = true; buildForm(); changed();
+    });
+    buildForm(); renderRoster(); renderRes();
+  }
+  // サンプル（すべて架空）。日付は今日から数えて作る（買った日・使った日が今日より先にならないように）
+  function sampleStore() {
+    var t = LT.dayNum(LT.today());
+    function d(off) { var x = new Date((t + off) * 86400000); return x.getUTCFullYear() + '-' + ('0' + (x.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + x.getUTCDate()).slice(-2); }
+    var st = { cls: 'ことのはヨガ', sel: '', students: [
+      { id: 'sampleyui', name: 'ゆい', total: '10', bought: d(-56), exp: d(60), used: [d(-56), d(-49), d(-42), d(-35), d(-28), d(-14)] },
+      { id: 'sampleriku', name: 'りく', total: '5', bought: d(-28), exp: d(29), used: [d(-28), d(-21), d(-14)] },
+      { id: 'samplehana', name: 'はな', total: '8', bought: d(-119), exp: d(-1), used: [d(-119), d(-105), d(-91), d(-70), d(-49), d(-21)] },
+      { id: 'samplesota', name: 'そうた', total: '12', bought: d(-7), exp: '', used: [d(-7)] }
+    ] };
+    st.sel = 'sampleriku';
+    return st;
+  }
+
+  /* ---------------- リンクを開いたとき（見る画面） ---------------- */
+  function renderViewPage(cfg) {
+    document.title = LT.san(cfg.name) + 'の回数券';
+    app.textContent = '';
+    var page = h('div', { class: 'viewpage' }); app.appendChild(page);
+    page.appendChild(h('div', { class: 'notice', text: 'この回数券の記録は、先生がリンクを作った時点（' + LT.dateJa(cfg.made) + '）の内容です。その後の記録は反映されません。当サイトは内容を確認していません。お金の支払いや、個人情報を入力する画面ではありません。' }));
+    page.appendChild(h('p', { class: 'v-cls', text: (cfg.cls ? cfg.cls + ' ' : '') + '回数券' }));
+    renderRemain(page, cfg);
+    var url = baseUrl() + location.hash;
+    var ta = h('textarea', { readonly: true, class: 'msgbox', rows: 8, 'aria-label': '回数券の記録の文' });
+    ta.value = LT.message(cfg, url);
+    var msg = h('p', { class: 'okmsg', role: 'status' });
+    var cp = h('button', { type: 'button', class: 'primary', text: 'この内容をコピー' });
+    cp.addEventListener('click', function () {
+      copyText(ta.value, function (ok) {
+        if (ok) msg.textContent = 'コピーしました。';
+        else { msg.textContent = 'コピーできませんでした。上の文を長押しして、コピーしてください。'; selectAll(ta); }
+      });
+    });
+    page.appendChild(h('div', { class: 'panel' }, [h('h3', { text: '記録の文' }), ta, h('div', { class: 'stack' }, [cp]), msg]));
+    fitHeight(ta);
+    var imp = h('button', { type: 'button', class: 'linklike', text: '先生用: この内容を自分の一覧に取り込む', onclick: function () { importCfg(cfg); } });
+    page.appendChild(h('div', null, [imp]));
+    page.appendChild(h('p', { class: 'small', text: '「取り込む」を押すと、この記録がこの端末の一覧に保存されます。生徒の方は押さなくて大丈夫です。' }));
+  }
+  function importCfg(cfg) {
+    var st = loadStore();
+    if (storeBroken && !confirm('この端末に保存された一覧が読み取れませんでした（元のデータは残してあります）。新しい一覧に取り込みますか？')) return;
+    var same = null;
+    st.students.forEach(function (s) { if (LT.nameKey(s.name) === LT.nameKey(cfg.name)) same = s; });
+    if (same) {
+      if (!confirm('一覧に「' + LT.clean(same.name) + '」がもういます。この記録で上書きしますか？')) return;
+      var rep = LT.studentFrom(cfg, same.id);
+      st.students = st.students.map(function (s) { return s.id === same.id ? rep : s; });
+      st.sel = same.id;
+    } else {
+      if (st.students.length >= LT.LIM.students) { alert('一覧は' + LT.LIM.students + '人までです。生徒を消してから取り込んでください。'); return; }
+      var add = LT.studentFrom(cfg); st.students.push(add); st.sel = add.id;
+    }
+    if (!LT.clean(st.cls) && cfg.cls) st.cls = cfg.cls;
+    saveStore(st);
+    if (!storageOk) { alert('この端末では一覧を保存できません。'); return; }
+    goMake();
+  }
+  function renderBroken() {
+    document.title = '回数券の残りリンク';
+    app.textContent = '';
+    app.appendChild(h('h1', { text: '回数券の記録が読み取れませんでした' }));
+    app.appendChild(h('div', { class: 'errors', text: 'リンクが壊れているか、対応していない形式です。リンクを送ってくれた先生に、もう一度確認してください。' }));
+    app.appendChild(h('button', { type: 'button', text: '回数券を記録する画面へ', onclick: goMake }));
+  }
+  function goMake() {
+    try { history.pushState(null, '', baseUrl()); } catch (e) { location.hash = ''; }
+    route();
+  }
+  function route() {
+    var hash = location.hash;
+    if (!hash || hash === '#') renderMake();
+    else { var cfg = LT.decodeHash(hash); if (cfg) renderViewPage(cfg); else renderBroken(); }
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', route);
+  route();
+  return { route: route, sampleStore: sampleStore };
+})();
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "b4c9f7e78daf4edb84ef52b88633f649"}'></script>
+</body>
+</html>
