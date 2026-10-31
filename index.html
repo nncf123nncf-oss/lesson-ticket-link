@@ -75,8 +75,9 @@
   .addday input { margin: 0; }
   .used { list-style: none; margin: 0 0 10px; padding: 0; }
   .used li { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding: 2px 0; }
-  .used .un { font-weight: 700; color: var(--ink3); min-width: 3.6em; white-space: nowrap; }
+  .used .un { font-weight: 700; color: var(--ink3); min-width: 3em; white-space: nowrap; }
   .used .ud { flex: 1; min-width: 0; }
+  .ud .mark, .days .mark { margin-left: 6px; }
   .used button { padding: 6px 10px; font-size: 15px; }
   .sec-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 16px 0 8px; }
   .sec-h h2 { margin: 0; }
@@ -86,8 +87,8 @@
   .remain { border: 3px solid var(--accent); border-radius: 10px; background: var(--surface); padding: 12px 14px; margin: 0 0 12px; }
   .remain .rl { font-size: 23px; font-weight: 800; line-height: 1.4; margin: 0 0 8px; overflow-wrap: anywhere; }
   .remain .rl .nw { white-space: nowrap; }
-  .dots { display: grid; grid-template-columns: repeat(10, minmax(0, 28px)); gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
-  .dots li { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;
+  .dots { display: grid; grid-template-columns: repeat(10, 25px); gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+  .dots li { width: 25px; height: 25px; border-radius: 50%; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 800; line-height: 1; background: var(--surface); }
   .dots li.on { background: var(--accent); color: var(--accent-ink); }
   .remain .cnt { font-size: 15px; color: var(--ink2); margin: 0; }
@@ -95,7 +96,7 @@
   .exp-line.warn { border: 2px solid var(--danger); background: var(--danger-soft); }
   .days { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }
   .days li { display: flex; gap: 10px; border-bottom: 1px solid var(--line); padding: 4px 0; }
-  .days .un { font-weight: 700; color: var(--ink3); min-width: 3.6em; white-space: nowrap; }
+  .days .un { font-weight: 700; color: var(--ink3); min-width: 3em; white-space: nowrap; }
   .msgbox { font-size: 15px; white-space: pre-wrap; }
   .linklike { background: none; border: 0; color: var(--accent); text-decoration: underline; padding: 8px 0; min-height: 44px; }
   .danger-btn { color: var(--danger); border-color: var(--danger); }
@@ -132,8 +133,8 @@ var LT = (function () {
   var RE_INVISIBLE = new RegExp('[\\p{Cf}' + String.fromCharCode(0x3164, 0x115f, 0x1160, 0xffa0) + ']', 'gu');
 
   function clean(s) { return String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').replace(RE_INVISIBLE, '').replace(/\s+/g, ' ').trim(); }
-  // 呼び名が重なっていないかを見る形（全角半角・大文字小文字・空白の違いをそろえる）
-  function nameKey(s) { return clean(s).normalize('NFKC').toLowerCase().replace(/\s/g, ''); }
+  // 呼び名が重なっていないかを見る形（全角半角・大文字小文字・空白の違いをそろえ、末尾の「さん」などを外す。表示はどちらも「ゆいさん」になるため）
+  function nameKey(s) { return clean(s).normalize('NFKC').toLowerCase().replace(/\s/g, '').replace(/(.)(さん|様|さま|くん|君|ちゃん|先生)$/, '$1'); }
   function cpLen(s) { return Array.from(s).length; }
   function norm(s) {
     return String(s).normalize('NFKC').toLowerCase()
@@ -152,7 +153,10 @@ var LT = (function () {
   var RE_DOMAIN = new RegExp('[^\\s.]+\\.' + TLD + '(?![a-z])');
   var LEAD_WORDS = ['lineid', 'らいんid', 'id検索', '友だち追加', '友達追加', 'ともだち追加', 'paypayid', 'kyashid'].map(wordKey);
   // 振込先・口座を書かせない（偽の請求のように使わせない）。語の根で持つ
-  var MONEY_WORDS = ['振込', '振り込', 'ふりこみ', '払込', '払い込', '送金', '入金先', '支払先', '支払い先', '口座', '銀行', 'ぎんこう', '信用金庫', '信金', 'ゆうちょ', '通帳', '暗証', 'カード番号', '名義', 'bank'].map(wordKey);
+  var MONEY_WORDS = ['振込', '振り込', 'ふりこみ', '払込', '払い込', '送金', '入金先', '支払先', '支払い先', '口座', '銀行', 'ぎんこう', '信用金庫', '信金', 'ゆうちょ', '通帳', '暗証', 'カード番号', '名義', 'bank',
+    // このページは値段を扱わないので、請求・支払いに見える言葉も止める（Day085より強め）
+    '請求', '未払', '未納', '支払', '支払い', '督促', '延滞', '料金', '代金', '入金', 'paypay'].map(wordKey);
+  var RE_PRICE = /\d\s*円|[¥￥]\s*\d|\d\s*yen/;
   var KANJI_DIGITS = '〇一二三四五六七八九';
   var RE_DATE = /(?<!\d)(?:19|20)\d{2}[\-\/.](?:0?[1-9]|1[0-2])[\-\/.](?:0?[1-9]|[12]\d|3[01])(?!\d)/g;
   function blockedReason(s) {
@@ -161,7 +165,7 @@ var LT = (function () {
     if (/https?|:\/\/|www\.|tel:|mailto:/.test(compact) || RE_DOMAIN.test(n) || RE_DOMAIN.test(compact) || RE_DOMAIN.test(dotted)) return 'link';
     if (hasWord(key, LEAD_WORDS)) return 'lead';
     if (/@(?!\d)/.test(n)) return 'mail';
-    if (hasWord(key, MONEY_WORDS)) return 'money';
+    if (hasWord(key, MONEY_WORDS) || RE_PRICE.test(n)) return 'money';
     var digits = n.replace(/[〇一二三四五六七八九]/g, function (c) { return String(KANJI_DIGITS.indexOf(c)); }).replace(RE_DATE, ' ');
     if (/\+\d[\d\s().\/_\-・、]{6,}/.test(digits)) return 'number';
     var runs = digits.match(/\d[\d\s().\/_\-・、]*\d/g) || [];
@@ -231,7 +235,7 @@ var LT = (function () {
       if (req && !t) errs.push(label + 'を入れてください');
       if (cpLen(t) > max) errs.push(label + 'は' + max + '字までです');
       var b = blockedReason(t);
-      if (b === 'money') errs.push(label + '：振込先や口座に関わる言葉は入れられません（このページはお金の支払いを扱いません）');
+      if (b === 'money') errs.push(label + '：金額や、支払い・振込・口座に関わる言葉は入れられません（このページはお金を扱いません）');
       else if (b === 'lead') errs.push(label + '：LINE IDなど、連絡先を書くことはできません');
       else if (b) errs.push(label + 'に' + REASON[b] + 'らしい文字は入れられません');
       return t;
@@ -267,6 +271,8 @@ var LT = (function () {
     else if (exp === 'left' && days <= SOON) marks.push('期限まであと' + days + '日');
     return { left: left, days: days, exp: exp, marks: marks };
   }
+  // 有効期限より後に使った日（止めずに印だけ付ける）
+  function afterExp(cfg, d) { return !!cfg.exp && validDate(cfg.exp) && validDate(d) && dayNum(d) > dayNum(cfg.exp); }
   function san(name) { return /(さん|様|さま|くん|君|ちゃん|先生)$/.test(name) ? name : name + 'さん'; }
   function remainText(cfg, st) { return st.left === 0 ? san(cfg.name) + ' ' + cfg.total + '回券を使い切りました' : san(cfg.name) + ' 残り' + st.left + '回（' + cfg.total + '回券）'; }
   function expText(cfg, st) {
@@ -333,10 +339,10 @@ var LT = (function () {
   }
 
   var api = {
-    KEY: KEY, LIM: LIM, HASH_MAX: HASH_MAX, URL_MAX: URL_MAX, SIZES: SIZES, now: null,
+    KEY: KEY, LIM: LIM, HASH_MAX: HASH_MAX, URL_MAX: URL_MAX, SIZES: SIZES, SOON: SOON, now: null,
     clean: clean, nameKey: nameKey, cpLen: cpLen, blockedReason: blockedReason, validDate: validDate, dayNum: dayNum, today: today, dateJa: dateJa, dateJaW: dateJaW, shortDates: shortDates,
     blankStudent: blankStudent, emptyStore: emptyStore, sanitizeStore: sanitizeStore, parseTotal: parseTotal, toConfig: toConfig, studentFrom: studentFrom,
-    status: status, san: san, remainText: remainText, expText: expText, listExpText: listExpText, message: message,
+    status: status, afterExp: afterExp, san: san, remainText: remainText, expText: expText, listExpText: listExpText, message: message,
     encode: encode, makeUrl: makeUrl, decodeHash: decodeHash
   };
   return api;
@@ -386,22 +392,31 @@ var LTUI = (function () {
 
   /* ---------------- 端末への保存 ---------------- */
   var storageOk = (function () { try { localStorage.setItem(LT.KEY + '-probe', '1'); localStorage.removeItem(LT.KEY + '-probe'); return true; } catch (e) { return false; } })();
-  var storeBroken = false;
+  var storeIssue = ''; // '' ／ 'broken'（読み取れない）／ 'partial'（一部を直して読んだ）
+  var memStore = null; // 保存できない端末で、ページを開いているあいだだけ一覧を持つ
+  var onSaveFail = null;
+  function backup(raw) { try { if (!localStorage.getItem(LT.KEY + '-backup')) localStorage.setItem(LT.KEY + '-backup', raw); } catch (e) { } }
   function loadStore() {
+    if (memStore) return memStore;
+    storeIssue = '';
     var raw = null;
     try { raw = localStorage.getItem(LT.KEY); } catch (e) { return LT.emptyStore(); }
     if (!raw) return LT.emptyStore();
-    var st = null;
-    try { st = LT.sanitizeStore(JSON.parse(raw)); } catch (e) { st = null; }
-    if (st) return st;
-    // 読み取れなかった一覧は消さずに別のキーへ写してから、空の一覧で始める
-    storeBroken = true;
-    try { if (!localStorage.getItem(LT.KEY + '-backup')) localStorage.setItem(LT.KEY + '-backup', raw); } catch (e) { }
-    return LT.emptyStore();
+    var o = null, st = null;
+    try { o = JSON.parse(raw); st = LT.sanitizeStore(o); } catch (e) { st = null; }
+    if (!st) {
+      // 読み取れなかった一覧は消さずに別のキーへ写してから、空の一覧で始める
+      storeIssue = 'broken'; backup(raw);
+      return LT.emptyStore();
+    }
+    // 型を直したり、上限を超えたぶんを落としたりしたときも、元のデータを写しておく
+    if (JSON.stringify([o.cls, o.students]) !== JSON.stringify([st.cls, st.students])) { storeIssue = 'partial'; backup(raw); }
+    return st;
   }
   function saveStore(st) {
-    if (!storageOk) return;
-    try { localStorage.setItem(LT.KEY, JSON.stringify(st)); storeBroken = false; } catch (e) { storageOk = false; }
+    if (!storageOk) { memStore = st; return; }
+    try { localStorage.setItem(LT.KEY, JSON.stringify(st)); storeIssue = ''; }
+    catch (e) { storageOk = false; memStore = st; if (onSaveFail) onSaveFail(); }
   }
 
   /* ---------------- 残りの表示（作る画面・見る画面の共通） ---------------- */
@@ -417,12 +432,13 @@ var LTUI = (function () {
     box.appendChild(dots);
     box.appendChild(h('p', { class: 'cnt', text: '使った回数 ' + cfg.used.length + '回／残り ' + st.left + '回' }));
     root.appendChild(box);
-    root.appendChild(h('p', { class: 'exp-line' + (st.exp === 'expired' || st.exp === 'today' || (st.exp === 'left' && st.days <= 14) ? ' warn' : ''), text: LT.expText(cfg, st) }));
+    root.appendChild(h('p', { class: 'exp-line' + (st.exp === 'expired' || st.exp === 'today' || (st.exp === 'left' && st.days <= LT.SOON) ? ' warn' : ''), text: LT.expText(cfg, st) }));
     root.appendChild(h('h3', { text: '使った日' }));
     if (!cfg.used.length) root.appendChild(h('p', { class: 'small', text: 'まだありません' }));
     else {
       var ol = h('ul', { class: 'days' });
-      for (var k = cfg.used.length - 1; k >= 0; k--) ol.appendChild(h('li', null, [h('span', { class: 'un', text: (k + 1) + '回目' }), h('span', { text: LT.dateJaW(cfg.used[k]) })]));
+      for (var k = cfg.used.length - 1; k >= 0; k--) ol.appendChild(h('li', null, [h('span', { class: 'un', text: (k + 1) + '回目' }), h('span', { text: LT.dateJaW(cfg.used[k]) }),
+        LT.afterExp(cfg, cfg.used[k]) ? h('span', { class: 'mark', text: '期限後' }) : null]));
       root.appendChild(ol);
     }
     root.appendChild(h('p', { class: 'small', text: cfg.total + '回券・' + LT.dateJa(cfg.bought) + 'に購入' }));
@@ -430,10 +446,11 @@ var LTUI = (function () {
   }
 
   /* ---------------- 作る画面（先生の一覧） ---------------- */
-  function renderMake() {
+  function renderMake(notice) {
     document.title = '回数券の残りリンク';
     app.textContent = '';
     var store = loadStore(), showErrors = false;
+    if (!storageOk) memStore = store;
     [
       h('h1', { text: '回数券の残りリンク' }),
       h('p', { class: 'lead', text: '生徒ごとに回数券と使った日を記録すると、残りの回数と期限までの日数が出ます。記録はリンクにして生徒に送れます。生徒は登録しなくても見られます。' }),
@@ -444,9 +461,15 @@ var LTUI = (function () {
         h('li', { text: 'お金の支払いは扱いません。連絡先・リンク・口座に関わる文字は入れられないようにしています（すべての言い方は防げません）。' })
       ])
     ].forEach(function (e) { app.appendChild(e); });
-    if (!storageOk) app.appendChild(h('div', { class: 'errors', text: 'この端末では一覧を保存できません。ページを閉じると記録が消えます。生徒に送るリンクを控えてください。' }));
-    var brokenBox = h('div', { class: 'errors', text: '保存された一覧が読み取れませんでした。元のデータは消さずに残してあります。新しく記録すると、空の一覧から始まります。' });
-    brokenBox.hidden = !storeBroken;
+    if (notice) app.appendChild(h('div', { class: 'notice', role: 'status', text: notice }));
+    var noSaveBox = h('div', { class: 'errors', role: 'alert', text: 'この端末では一覧を保存できません。ページを閉じると記録が消えます。生徒に送るリンクを控えてください。' });
+    noSaveBox.hidden = storageOk;
+    app.appendChild(noSaveBox);
+    onSaveFail = function () { noSaveBox.hidden = false; };
+    var brokenBox = h('div', { class: 'errors', text: storeIssue === 'broken'
+      ? '保存された一覧が読み取れませんでした。元のデータは消さずに残してあります。新しく記録すると、空の一覧から始まります。'
+      : '保存された一覧の一部が読み取れなかったため、読み取れたところだけを出しています。元のデータは別に残してあります。' });
+    brokenBox.hidden = !storeIssue;
     app.appendChild(brokenBox);
 
     var layout = h('div', { class: 'layout' }), left = h('div'), right = h('div');
@@ -493,7 +516,7 @@ var LTUI = (function () {
     function cfgOf(s) { return LT.toConfig(store.cls, s, store.students); }
     function changed() {
       saveStore(store);
-      brokenBox.hidden = !storeBroken;
+      brokenBox.hidden = !storeIssue;
       linkBox.hidden = true; curUrl = '';
       renderRoster(); renderRes();
       if (showErrors) refreshErrors();
@@ -515,6 +538,7 @@ var LTUI = (function () {
       rosterHead.appendChild(h('span', { class: 'hint', text: store.students.length + ' / ' + LT.LIM.students + '人' }));
       emptyRoster.hidden = store.students.length > 0;
       addBtn.disabled = store.students.length >= LT.LIM.students;
+      sampleBtn.hidden = store.students.length > 0; // 本物の一覧をサンプルで消さないよう、一覧が空のときだけ出す
       var now = LT.today();
       store.students.forEach(function (s) {
         var r = cfgOf(s), name = LT.clean(s.name) || '（呼び名なし）';
@@ -578,7 +602,9 @@ var LTUI = (function () {
       function addDay(d) {
         var t = LT.parseTotal(s.total);
         if (!LT.validDate(d)) { recMsg.textContent = '日付を選んでください。'; return; }
-        if (!isNaN(t) && s.used.length >= t) { recMsg.textContent = t + '回券は' + t + '回まで記録できます。'; return; }
+        if (isNaN(t)) { recMsg.textContent = '先に何回券か（1〜' + LT.LIM.totalMax + '回）を入れてください。'; return; }
+        if (s.used.length >= t) { recMsg.textContent = t + '回券は' + t + '回まで記録できます。'; return; }
+        if (LT.dayNum(d) > LT.dayNum(LT.today())) { recMsg.textContent = 'まだ来ていない日は記録できません。'; return; }
         if (LT.validDate(s.bought) && LT.dayNum(d) < LT.dayNum(s.bought)) { recMsg.textContent = '買った日より前の日は記録できません。'; return; }
         s.used.push(d); s.used.sort();
         buildUsed(); changed();
@@ -594,10 +620,11 @@ var LTUI = (function () {
       form.appendChild(usedBox);
       function buildUsed() {
         usedBox.textContent = '';
-        var sorted = s.used.slice().sort();
+        var sorted = s.used.slice().sort(), ex = { exp: LT.validDate(s.exp) ? s.exp : '' };
         if (!sorted.length) { usedBox.appendChild(h('li', { class: 'small', text: 'まだ記録がありません' })); return; }
         for (var k = sorted.length - 1; k >= 0; k--) (function (d, k) {
-          usedBox.appendChild(h('li', null, [h('span', { class: 'un', text: (k + 1) + '回目' }), h('span', { class: 'ud', text: LT.dateJaW(d) }),
+          usedBox.appendChild(h('li', null, [h('span', { class: 'un', text: (k + 1) + '回目' }),
+            h('span', { class: 'ud' }, [LT.dateJaW(d), LT.afterExp(ex, d) ? h('span', { class: 'mark', text: '期限後' }) : null]),
             h('button', { type: 'button', text: '取り消す', 'aria-label': (k + 1) + '回目（' + LT.dateJa(d) + '）を取り消す', onclick: function () {
               if (!confirm((k + 1) + '回目（' + LT.dateJaW(d) + '）の記録を取り消します。よろしいですか？')) return;
               var at = s.used.indexOf(d); if (at >= 0) s.used.splice(at, 1);
@@ -719,15 +746,25 @@ var LTUI = (function () {
     fitHeight(ta);
     var imp = h('button', { type: 'button', class: 'linklike', text: '先生用: この内容を自分の一覧に取り込む', onclick: function () { importCfg(cfg); } });
     page.appendChild(h('div', null, [imp]));
-    page.appendChild(h('p', { class: 'small', text: '「取り込む」を押すと、この記録がこの端末の一覧に保存されます。生徒の方は押さなくて大丈夫です。' }));
+    page.appendChild(h('p', { class: 'small', text: '「取り込む」を押すと、この記録がこの端末の一覧に保存されます。生徒の方は押さなくて大丈夫です。先生が自分で作ったリンクだけを取り込んでください。LINEなどアプリの中で開いたときは、ふだんのブラウザとは別の場所に保存されることがあります。' }));
+  }
+  // 取り込む前に、一覧の記録とリンクの記録を並べて見せる（古いリンクや書き換えたリンクで、一覧の記録を消さないため）
+  function summary(total, used) {
+    var t = LT.parseTotal(total), u = used.slice().sort(), last = u.length ? u[u.length - 1].split('-').map(Number) : null;
+    return (isNaN(t) ? '' : '残り' + (t - u.length) + '回・') + '使った日' + u.length + '件' + (last ? '（最後 ' + last[1] + '/' + last[2] + '）' : '');
   }
   function importCfg(cfg) {
     var st = loadStore();
-    if (storeBroken && !confirm('この端末に保存された一覧が読み取れませんでした（元のデータは残してあります）。新しい一覧に取り込みますか？')) return;
+    if (storeIssue === 'broken' && !confirm('この端末に保存された一覧が読み取れませんでした（元のデータは残してあります）。新しい一覧に取り込みますか？')) return;
     var same = null;
     st.students.forEach(function (s) { if (LT.nameKey(s.name) === LT.nameKey(cfg.name)) same = s; });
     if (same) {
-      if (!confirm('一覧に「' + LT.clean(same.name) + '」がもういます。この記録で上書きしますか？')) return;
+      var mine = same.used.filter(LT.validDate);
+      var q = '一覧に「' + LT.clean(same.name) + '」がもういます。\n' +
+        '一覧: ' + summary(same.total, mine) + '\n' +
+        'このリンク: ' + summary(String(cfg.total), cfg.used) + '・' + LT.dateJa(cfg.made) + '時点\n';
+      if (cfg.used.length < mine.length) q += '\nこのリンクは、一覧より使った日が少ない記録です。古いリンクか、書き換えられたリンクかもしれません。\n';
+      if (!confirm(q + 'この記録で一覧を上書きしますか？')) return;
       var rep = LT.studentFrom(cfg, same.id);
       st.students = st.students.map(function (s) { return s.id === same.id ? rep : s; });
       st.sel = same.id;
@@ -736,8 +773,7 @@ var LTUI = (function () {
       var add = LT.studentFrom(cfg); st.students.push(add); st.sel = add.id;
     }
     if (!LT.clean(st.cls) && cfg.cls) st.cls = cfg.cls;
-    saveStore(st);
-    if (!storageOk) { alert('この端末では一覧を保存できません。'); return; }
+    saveStore(st); // 保存できない端末では、ページを開いているあいだだけ一覧に入れて作る画面を開く
     goMake();
   }
   function renderBroken() {
@@ -758,6 +794,11 @@ var LTUI = (function () {
     window.scrollTo(0, 0);
   }
   window.addEventListener('hashchange', route);
+  // 別のタブで一覧が変わったら、作る画面を読み直す（古い画面の一覧で上書きしないため）
+  window.addEventListener('storage', function (e) {
+    if (e.key !== LT.KEY || memStore) return;
+    if (!location.hash || location.hash === '#') renderMake('別の画面で一覧が変わったので、読み直しました。');
+  });
   route();
   return { route: route, sampleStore: sampleStore };
 })();

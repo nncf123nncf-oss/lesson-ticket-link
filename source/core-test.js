@@ -102,4 +102,9 @@ for (let i = 0; i < 2000; i++) {
   if (!cc || !back || JSON.stringify(back) !== JSON.stringify(cc) || LT.status(back).left !== total - n) rnd++;
 }
 ok('random 2000 roundtrip', rnd === 0, rnd);
+// レビュー①で足した止める言葉・呼び名の重なり・期限後の印
+for (const t of ['未払い5000円', '請求書', '至急お支払い', '¥5000', '5000円', 'PayPay', '督促', '料金']) ok('R1 block ' + t, LT.toConfig(t, base, []).cfg === null);
+for (const t of ['円山ヨガ', 'ことのはヨガ', 'ピアノ教室 2F']) ok('R1 pass ' + t, LT.toConfig(t, base, []).cfg !== null);
+ok('R1 dup ゆい/ゆいさん', LT.toConfig('', Object.assign({}, base, { name: 'ゆいさん' }), [{ id: 'q', name: 'ゆい' }]).cfg === null && LT.nameKey('先生') === '先生');
+ok('R1 afterExp', LT.afterExp({ exp: '2026-10-01' }, '2026-10-20') && !LT.afterExp({ exp: '2026-10-01' }, '2026-10-01') && !LT.afterExp({ exp: '' }, '2026-10-20'));
 console.log(ng ? 'NG ' + ng : 'ALL OK'); process.exit(ng ? 1 : 0);

@@ -155,6 +155,46 @@ const val = (sel, v) => `(()=>{const e=document.querySelector(${JSON.stringify(s
   }
   await reopen(fs.readFileSync(path.join(OUT, 'sample-url.txt'), 'utf8'), 1000, 1200);
   ok('view 1000 max width', await b.ev(`document.querySelector('.viewpage').getBoundingClientRect().width`) <= 520);
+  // 17) レビュー①の修正分
+  await b.ev(`localStorage.clear()`); await reopen(); await b.ev(click('サンプルを入れる')); await b.sleep(100);
+  ok('sample hidden when list exists', await b.ev(`[...document.querySelectorAll('button')].find(x=>x.textContent==='サンプルを入れる').hidden`));
+  // 回数の欄が空なら記録しない・未来の日は記録しない
+  await b.ev(`(()=>{const e=[...document.querySelectorAll('#app input[type=text]')].find(x=>x.getAttribute('aria-label')==='ほかの回数（1〜50）');e.value='';e.dispatchEvent(new Event('input'))})()`); await b.sleep(80);
+  const n0 = await b.ev(`document.querySelectorAll('.used li').length`);
+  await b.ev(click('今日の1回を記録')); await b.sleep(80);
+  ok('no total stops', /先に何回券か/.test(await b.ev(`document.body.innerText`)) && await b.ev(`document.querySelectorAll('.used li').length`) === n0);
+  await b.ev(click('5回')); await b.ev(val('.addday input', '2026-11-02')); await b.ev(click('足す')); await b.sleep(80);
+  ok('future stops', /まだ来ていない日は記録できません/.test(await b.ev(`document.body.innerText`)));
+  // 期限後の印
+  await b.ev(val('.addday input', '2026-10-25')); await b.ev(`(()=>{const e=document.querySelectorAll('#app input[type=date]')[1];e.value='2026-10-20';e.dispatchEvent(new Event('input'))})()`); await b.ev(click('足す')); await b.sleep(80);
+  ok('after-exp mark (make)', await b.ev(`[...document.querySelectorAll('.used .mark')].map(e=>e.textContent).join()`) === '期限後', await b.ev(`document.querySelector('.used').innerText`));
+  ok('after-exp mark (remain)', await b.ev(`[...document.querySelectorAll('.days .mark')].map(e=>e.textContent).join()`) === '期限後');
+  // 30人で止まる・30人のときの取り込み
+  const many = { cls: '', sel: 's0', students: Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, name: '生徒' + i, total: '10', bought: '2026-10-01', exp: '', used: [] })) };
+  await b.ev(`localStorage.clear();` + setStore(many)); await reopen();
+  ok('30 students add disabled', await b.ev(`[...document.querySelectorAll('button')].find(x=>x.textContent==='＋ 生徒を追加').disabled`));
+  await reopen(fs.readFileSync(path.join(OUT, 'sample-url.txt'), 'utf8')); await b.ev(`window.__al='';window.alert=m=>{window.__al=m}`);
+  await b.ev(click('先生用: この内容を自分の一覧に取り込む')); await b.sleep(100);
+  ok('import at 30 stops', /30人まで/.test(await b.ev(`window.__al`)) && JSON.parse(await b.ev(`localStorage.getItem('lesson-ticket-link-v1')`)).students.length === 30);
+  // 取り込みの確認に両方の記録が並ぶ・巻き戻りの注意
+  await b.ev(`localStorage.clear();` + setStore({ cls: '', sel: 'a', students: [{ id: 'a', name: 'ゆいさん', total: '10', bought: '2026-09-06', exp: '', used: ['2026-09-06', '2026-09-13', '2026-09-20', '2026-09-27', '2026-10-04', '2026-10-18', '2026-10-25'] }] }));
+  await reopen(fs.readFileSync(path.join(OUT, 'sample-url.txt'), 'utf8')); await b.ev(`window.__cf='';window.confirm=m=>{window.__cf=m;return false}`);
+  await b.ev(click('先生用: この内容を自分の一覧に取り込む')); await b.sleep(100);
+  const cf = await b.ev(`window.__cf`);
+  ok('import confirm compares', /一覧: 残り3回・使った日7件（最後 10\/25）/.test(cf) && /このリンク: 残り4回・使った日6件（最後 10\/18）・2026年11月1日時点/.test(cf) && /一覧より使った日が少ない/.test(cf), cf);
+  ok('import cancel keeps', JSON.parse(await b.ev(`localStorage.getItem('lesson-ticket-link-v1')`)).students[0].used.length === 7);
+  // 一部だけ壊れた保存データ: 読み取れたところを出し、元のデータを退避
+  const part = JSON.stringify({ cls: 'ことのはヨガ', sel: 'a', students: [{ id: 'a', name: 'ゆい', total: '10', bought: '2026-09-06', exp: '', used: ['2026-09-06', 'bad'] }, 5] });
+  await b.ev(`localStorage.clear();localStorage.setItem('lesson-ticket-link-v1',${JSON.stringify(part)})`); await reopen();
+  ok('partial store message + backup', /一部が読み取れなかった/.test(await b.ev(`document.body.innerText`)) && await b.ev(`localStorage.getItem('lesson-ticket-link-v1-backup')`) === part && (await b.ev(roster)).length === 1);
+  // 別のタブで一覧が変わったら読み直す
+  await b.ev(`localStorage.clear()`); await reopen(); await b.ev(click('サンプルを入れる')); await b.sleep(100);
+  await b.ev(`(()=>{const v=JSON.parse(localStorage.getItem('lesson-ticket-link-v1'));v.students.pop();const s=JSON.stringify(v);localStorage.setItem('lesson-ticket-link-v1',s);window.dispatchEvent(new StorageEvent('storage',{key:'lesson-ticket-link-v1',newValue:s}))})()`); await b.sleep(100);
+  ok('storage event reload', (await b.ev(roster)).length === 3 && /別の画面で一覧が変わった/.test(await b.ev(`document.body.innerText`)));
+  // コピーの代わりの経路（clipboard が無いとき）
+  await b.ev(`Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});document.execCommand=()=>false`);
+  await b.ev(click('生徒に送る文をコピー')); await b.sleep(100);
+  ok('copy fallback selects text', /長押しして、コピーしてください/.test(await b.ev(`document.body.innerText`)) && await b.ev(`document.activeElement===document.querySelector('.msgbox')`));
   // 16) 外部への通信・例外
   const ext = reqs.filter(u => !u.startsWith(ORIGIN) && !u.startsWith('data:') && !/cloudflareinsights/.test(u));
   ok('no external requests (except blocked beacon)', !ext.length, ext);
